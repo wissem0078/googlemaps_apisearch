@@ -1,4 +1,4 @@
-import os
+import io
 import time
 import re
 import math
@@ -8,7 +8,7 @@ import pandas as pd
 import googlemaps
 from googlemaps.exceptions import ApiError
 
-# ── API‐Key aus Streamlit-Secrets (lege in .streamlit/secrets.toml an):
+# ── API‑Key aus Streamlit-Secrets (le­ge in .streamlit/secrets.toml an):
 # [googlemaps]
 # api_key = "AIzaSyBgR_NacUFMmP4Nl-qCadyZ0rG4frXdbUc"
 api_key = st.secrets["googlemaps"]["api_key"]
@@ -104,9 +104,17 @@ if st.button("Suche starten"):
     if results:
         df = pd.DataFrame(results)
         st.dataframe(df)
+
+        # Excel in-memory erzeugen
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine="openpyxl") as writer:
+            df.to_excel(writer, index=False, sheet_name="Ergebnisse")
+            writer.save()
+        data = output.getvalue()
+
         st.download_button(
             label="Excel herunterladen",
-            data=df.to_excel(index=False),
+            data=data,
             file_name="results.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
