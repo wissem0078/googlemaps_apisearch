@@ -1,15 +1,15 @@
-# streamlit_app.py
+#!/usr/bin/env python3
+# search_multi.py
 
-import os
-import streamlit as st
 import googlemaps
 import pandas as pd
 import re
+import argparse
 import math
-import time
+from time import sleep
 
 def haversine(lat1, lng1, lat2, lng2):
-    """Berechnet die Distanz (in Metern) zwischen zwei Geo-Punkten."""
+    """Berechnet die Luftlinie zwischen zwei Punkten (in Metern)."""
     R = 6371000
     φ1, φ2 = math.radians(lat1), math.radians(lat2)
     Δφ = math.radians(lat2 - lat1)
@@ -17,89 +17,90 @@ def haversine(lat1, lng1, lat2, lng2):
     a = math.sin(Δφ/2)**2 + math.cos(φ1)*math.cos(φ2)*math.sin(Δλ/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
-st.title("Multi-Place-Suche mit Google Maps API")
+def main():
+    parser = argparse.ArgumentParser(
+        description="Mehrfach-Places-Search um einen Punkt herum via Google Maps API"
+    )
+    parser.add_argument("--api_key", required=True, help="Google Maps API-Key")
+    parser.add_argument("--lat",     type=float, required=True, help="Breitengrad")
+    parser.add_argument("--lng",     type=float, required=True, help="Längengrad")
+    parser.add_argument("--radius",  type=int,   default=35000,    help="Radius in Metern")
+    parser.add_argument("--queries", required=True,
+                        help="Kommagetrennte Suchbegriffe, z.B. coach,Arzt,Trainer")
+    parser.add_argument("--output",  default="results.xlsx",
+                        help="Name der Excel-Ausgabedatei")
+    args = parser.parse_args()
 
-# Google API Key aus den Streamlit-Secrets (bzw. Umgebungs­variable)
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    st.error("⚠️ Bitte setze in den Streamlit-Secrets den Schlüssel GOOGLE_API_KEY.")
-    st.stop()
+    gmaps    = googlemaps.Client(key=args.api_key)
+    queries  = [q.strip() for q in args.queries.split(",") if q.strip()]
+    all_data = []
+    seen_ids = set()
 
-# Eingabefelder
-queries = st.text_input("Suchbegriffe (kommagetrennt)", "coach,Arzt,Trainer")
-lat     = st.number_input("Latitude",  value=51.0341, format="%.6f")
-lng     = st.number_input("Longitude", value=7.8578, format="%.6f")
-radius  = st.number_input("Radius (m)", value=35000, step=100)
+    for query in queries:
+        print(f"→ Suche nach '{query}' …")
+        page_token = None
+        places     = []
 
-if st.button("Suche starten"):
-    gmaps  = googlemaps.Client(key=api_key)
-    results = []
-
-    for q in [q.strip() for q in queries.split(",") if q.strip()]:
-        st.write(f"🔍 Suche nach: **{q}** …")
-        token = None
-
-        # Paginierte Nearby-Search
         while True:
             res = gmaps.places_nearby(
-                location=(lat, lng),
-                radius=radius,
-                keyword=q,
-                page_token=token
+                location=(args.lat, args.lng),
+                radius=args.radius,
+                keyword=query,
+                page_token=page_token
             )
-            for p in res.get("results", []):
-                loc = p["geometry"]["location"]
-                d   = haversine(lat, lng, loc["lat"], loc["lng"])
-                if d > radius:
-                    continue
-
-                # Detailabfrage
-                detail = gmaps.place(
-                    place_id=p["place_id"],
-                    fields=[
-                        "name",
-                        "formatted_address",
-                        "formatted_phone_number",
-                        "international_phone_number"
-                    ]
-                )["result"]
-
-                name  = detail.get("name", "")
-                addr  = detail.get("formatted_address", "")
-                phone = detail.get("formatted_phone_number") \
-                      or detail.get("international_phone_number", "")
-
-                # Adresse parsen
-                m = re.match(r"^(.*?)\s+(\d+\w*),\s*(\d{5})\s+(.*)$", addr)
-                if m:
-                    street, housenr, plz, city = m.groups()
-                else:
-                    parts = [x.strip() for x in addr.split(",")]
-                    street, housenr = parts[0], ""
-                    plz, city      = ("", parts[-1]) if len(parts) > 1 else ("", "")
-
-                results.append({
-                    "Suchbegriff":    q,
-                    "Name":           name,
-                    "Straße":         street,
-                    "Hausnummer":     housenr,
-                    "PLZ":            plz,
-                    "Ort":            city,
-                    "Telefon":        phone,
-                    "Entfernung (m)": int(d)
-                })
-
-            token = res.get("next_page_token")
-            if not token:
+            places.extend(res.get("results", []))
+            page_token = res.get("next_page_token")
+            if not page_token:
                 break
-            time.sleep(2)
+            sleep(2)
 
-    # Ergebnis anzeigen und Download-Button
-    df = pd.DataFrame(results)
-    st.dataframe(df)
-    st.download_button(
-        label="Excel herunterladen",
-        data=df.to_excel(index=False),
-        file_name="results.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+        for p in places:
+            pid = p["place_id"]
+            if pid in seen_ids:
+                continue
+            seen_ids.add(pid)
+
+            loc  = p["geometry"]["location"]
+            dist = haversine(args.lat, args.lng, loc["lat"], loc["lng"])
+            if dist > args.radius:
+                continue
+
+            detail = gmaps.place(
+                place_id=pid,
+                fields=[
+                    "name",
+                    "formatted_address",
+                    "formatted_phone_number",
+                    "international_phone_number"
+                ]
+            )["result"]
+
+            name  = detail.get("name", "")
+            addr  = detail.get("formatted_address", "")
+            phone = detail.get("formatted_phone_number") or detail.get("international_phone_number", "")
+
+            m = re.match(r"^(.*?)\s+(\d+\w*),\s*(\d{5})\s+(.*)$", addr)
+            if m:
+                street, housenr, plz, city = m.groups()
+            else:
+                parts          = [x.strip() for x in addr.split(",")]
+                street, housenr = parts[0], ""
+                plz, city       = ("", parts[-1]) if len(parts) > 1 else ("", "")
+
+            all_data.append({
+                "Suchbegriff":    query,
+                "Name":           name,
+                "Straße":         street,
+                "Hausnummer":     housenr,
+                "PLZ":            plz,
+                "Ort":            city,
+                "Telefon":        phone,
+                "Entfernung (m)": int(dist)
+            })
+
+    df = pd.DataFrame(all_data)
+    df.to_excel(args.output, index=False)
+    print(f"✅ {len(df)} Einträge in '{args.output}' gespeichert.")
+
+if __name__ == "__main__":
+    main()
