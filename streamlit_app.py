@@ -8,7 +8,7 @@ import pandas as pd
 import googlemaps
 from googlemaps.exceptions import ApiError
 
-# ── API‑Key aus Streamlit-Secrets (le­ge in .streamlit/secrets.toml an):
+# ── API‑Key aus Streamlit‑Secrets (le­ge in .streamlit/secrets.toml an):
 # [googlemaps]
 # api_key = "AIzaSyBgR_NacUFMmP4Nl-qCadyZ0rG4frXdbUc"
 api_key = st.secrets["googlemaps"]["api_key"]
@@ -109,9 +109,9 @@ if st.button("Suche starten"):
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Ergebnisse")
-            writer.save()
-        data = output.getvalue()
+        # Context‑Manager schließt und speichert automatisch
 
+        data = output.getvalue()
         st.download_button(
             label="Excel herunterladen",
             data=data,
