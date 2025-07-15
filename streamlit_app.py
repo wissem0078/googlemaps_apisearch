@@ -1,12 +1,15 @@
 # streamlit_app.py
 
-import os
 import streamlit as st
 import googlemaps
 import pandas as pd
 import re
 import math
 import time
+
+# ▶▶▶ Hardcoded API-Key (nur temporär, zum Testen) ▶▶▶
+api_key = "AIzaSyCBhMutqjC1y1xT07TXSXYXYERyn45Dxvw"
+gmaps   = googlemaps.Client(key=api_key)
 
 def haversine(lat1, lng1, lat2, lng2):
     """Berechnet die Distanz (in Metern) zwischen zwei Geo-Punkten."""
@@ -19,12 +22,6 @@ def haversine(lat1, lng1, lat2, lng2):
 
 st.title("Multi-Place-Suche mit Google Maps API")
 
-# API-Key aus Streamlit Secrets / Umgebungsvariable
-api_key = os.getenv("GOOGLE_API_KEY")
-if not api_key:
-    st.error("⚠️ Bitte setze in den Streamlit-Secrets den Schlüssel GOOGLE_API_KEY.")
-    st.stop()
-
 # Eingabefelder
 queries = st.text_input("Suchbegriffe (kommagetrennt)", "coach,Arzt,Trainer")
 lat     = st.number_input("Latitude",  value=51.0341, format="%.6f")
@@ -32,7 +29,6 @@ lng     = st.number_input("Longitude", value=7.8578, format="%.6f")
 radius  = st.number_input("Radius (m)", value=35000, step=100)
 
 if st.button("Suche starten"):
-    gmaps   = googlemaps.Client(key=api_key)
     results = []
 
     for q in [q.strip() for q in queries.split(",") if q.strip()]:
@@ -72,7 +68,7 @@ if st.button("Suche starten"):
                 if m:
                     street, housenr, plz, city = m.groups()
                 else:
-                    parts         = [x.strip() for x in addr.split(",")]
+                    parts          = [x.strip() for x in addr.split(",")]
                     street, housenr = parts[0], ""
                     plz, city       = ("", parts[-1]) if len(parts) > 1 else ("", "")
 
