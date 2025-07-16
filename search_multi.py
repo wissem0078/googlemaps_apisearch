@@ -11,10 +11,11 @@ from time import sleep
 def haversine(lat1, lng1, lat2, lng2):
     """Berechnet die Luftlinie zwischen zwei Punkten (in Metern)."""
     R = 6371000
-    φ1, φ2 = math.radians(lat1), math.radians(lat2)
+    φ1 = math.radians(lat1)
+    φ2 = math.radians(lat2)
     Δφ = math.radians(lat2 - lat1)
     Δλ = math.radians(lng2 - lng1)
-    a = math.sin(Δφ/2)**2 + math.cos(φ1)*math.cos(φ2)*math.sin(Δλ/2)**2
+    a  = math.sin(Δφ/2)**2 + math.cos(φ1)*math.cos(φ2)*math.sin(Δλ/2)**2
     return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
 
 def main():
@@ -41,6 +42,7 @@ def main():
         page_token = None
         places     = []
 
+        # Paginierte Nearby-Search
         while True:
             res = gmaps.places_nearby(
                 location=(args.lat, args.lng),
@@ -71,14 +73,17 @@ def main():
                     "name",
                     "formatted_address",
                     "formatted_phone_number",
-                    "international_phone_number"
+                    "international_phone_number",
+                    "website"  # neu: offizielle Webseite
                 ]
             )["result"]
 
-            name  = detail.get("name", "")
-            addr  = detail.get("formatted_address", "")
-            phone = detail.get("formatted_phone_number") or detail.get("international_phone_number", "")
+            name    = detail.get("name", "")
+            addr    = detail.get("formatted_address", "")
+            phone   = detail.get("formatted_phone_number") or detail.get("international_phone_number", "")
+            website = detail.get("website", "")
 
+            # Adresse parsen
             m = re.match(r"^(.*?)\s+(\d+\w*),\s*(\d{5})\s+(.*)$", addr)
             if m:
                 street, housenr, plz, city = m.groups()
@@ -95,9 +100,11 @@ def main():
                 "PLZ":            plz,
                 "Ort":            city,
                 "Telefon":        phone,
+                "Website":        website,
                 "Entfernung (m)": int(dist)
             })
 
+    # Ergebnisse in DataFrame und Excel schreiben
     df = pd.DataFrame(all_data)
     df.to_excel(args.output, index=False)
     print(f"✅ {len(df)} Einträge in '{args.output}' gespeichert.")
