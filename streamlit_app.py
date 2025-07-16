@@ -53,7 +53,7 @@ if st.button("Suche starten"):
                     if d > radius:
                         continue
 
-                    # Detail‑Abfrage
+                    # Detail‑Abfrage inklusive Website
                     try:
                         detail = gmaps.place(
                             place_id=p["place_id"],
@@ -61,16 +61,18 @@ if st.button("Suche starten"):
                                 "name",
                                 "formatted_address",
                                 "formatted_phone_number",
-                                "international_phone_number"
+                                "international_phone_number",
+                                "website"
                             ]
                         )["result"]
                     except ApiError as e:
                         st.warning(f"⚠️ Detail‑Abfrage fehlgeschlagen: {e}")
                         continue
 
-                    name  = detail.get("name", "")
-                    addr  = detail.get("formatted_address", "")
-                    phone = detail.get("formatted_phone_number") or detail.get("international_phone_number", "")
+                    name    = detail.get("name", "")
+                    addr    = detail.get("formatted_address", "")
+                    phone   = detail.get("formatted_phone_number") or detail.get("international_phone_number", "")
+                    website = detail.get("website", "")
 
                     # Adresse parsen
                     m = re.match(r"^(.*?)\s+(\d+\w*),\s*(\d{5})\s+(.*)$", addr)
@@ -89,6 +91,7 @@ if st.button("Suche starten"):
                         "PLZ":            plz,
                         "Ort":            city,
                         "Telefon":        phone,
+                        "Website":        website,
                         "Entfernung (m)": int(d)
                     })
 
@@ -109,9 +112,8 @@ if st.button("Suche starten"):
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="openpyxl") as writer:
             df.to_excel(writer, index=False, sheet_name="Ergebnisse")
-        # Context‑Manager schließt und speichert automatisch
-
         data = output.getvalue()
+
         st.download_button(
             label="Excel herunterladen",
             data=data,
