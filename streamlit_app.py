@@ -10,7 +10,7 @@ from googlemaps.exceptions import ApiError
 
 # ── API‑Key aus Streamlit‑Secrets (le­ge in .streamlit/secrets.toml an):
 # [googlemaps]
-# api_key = "AIzaSyCqC9EFmUgMxcojiFcV6h9KgSoWPBr001c"
+api_key = "AIzaSyCqC9EFmUgMxcojiFcV6h9KgSoWPBr001c"
 api_key = st.secrets["googlemaps"]["api_key"]
 gmaps    = googlemaps.Client(key=api_key)
 
